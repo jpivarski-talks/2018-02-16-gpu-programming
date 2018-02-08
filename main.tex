@@ -220,42 +220,65 @@ This talk is not about high-level machine learning tools that {\it use} the GPU,
 %% \end{minted}
 %% \end{frame}
 
-\begin{frame}[fragile]{Or PyCUDA with GPUArrays}
-\vspace{0.2 cm}
+%% \begin{frame}[fragile]{Or PyCUDA with GPUArrays}
+%% \vspace{0.2 cm}
+%% \scriptsize
+%% \begin{minted}{python}
+%% import numpy
+%% import pycuda.autoinit
+%% import pycuda.elementwise
+%% import pycuda.gpuarray
+
+%% gpu_kernel = pycuda.elementwise.ElementwiseKernel(
+%%     "float* datain, float* dataout",
+%%     "dataout[i] = sqrt(datain[i])",
+%%     "gpu_kernel")
+
+%% MILLION = 1024*1024
+%% cpu_datain = numpy.random.uniform(0.0, 1.0, MILLION).astype(numpy.float32)
+
+%% gpu_datain = pycuda.gpuarray.to_gpu(cpu_datain)
+%% gpu_dataout = pycuda.gpuarray.empty(MILLION, numpy.float32)
+%% gpu_kernel(gpu_datain, gpu_dataout)
+
+%% print("first:", cpu_datain[0], "-->", gpu_dataout[0])
+%% \end{minted}
+
+%% \vspace{0.15 cm}
+%% \normalsize
+%% or even
+
+%% \vspace{0.15 cm}
+%% \scriptsize
+%% \begin{minted}{python}
+%% import pycuda.cumath
+%% gpu_dataout = pycuda.cumath.sqrt(gpu_datain)
+%% \end{minted}
+%% \end{frame}
+
+\begin{frame}[fragile]{Numba version of the program we compiled with nvcc}
+\vspace{0.1 cm}
 \scriptsize
 \begin{minted}{python}
+import math
 import numpy
-import pycuda.autoinit
-import pycuda.elementwise
-import pycuda.gpuarray
+import numba.cuda
 
-gpu_kernel = pycuda.elementwise.ElementwiseKernel(
-    "float* datain, float* dataout",
-    "dataout[i] = sqrt(datain[i])",
-    "gpu_kernel")
+@numba.cuda.jit
+def gpu_kernel(datain, dataout):
+    id = numba.cuda.grid(1)   # shortcut for threadIdx etc. with 1 dimension
+    dataout[id] = math.sqrt(datain[id])
 
 MILLION = 1024*1024
 cpu_datain = numpy.random.uniform(0.0, 1.0, MILLION).astype(numpy.float32)
 
-gpu_datain = pycuda.gpuarray.to_gpu(cpu_datain)
-gpu_dataout = pycuda.gpuarray.empty(MILLION, numpy.float32)
-gpu_kernel(gpu_datain, gpu_dataout)
+gpu_datain = numba.cuda.to_device(cpu_datain)
+gpu_dataout = numba.cuda.device_array(MILLION, numpy.float32)
+gpu_kernel[MILLION // 1024, 1024](gpu_datain, gpu_dataout)
 
 print("first:", cpu_datain[0], "-->", gpu_dataout[0])
 \end{minted}
-
-\vspace{0.15 cm}
-\normalsize
-or even
-
-\vspace{0.15 cm}
-\scriptsize
-\begin{minted}{python}
-import pycuda.cumath
-gpu_dataout = pycuda.cumath.sqrt(gpu_datain)
-\end{minted}
 \end{frame}
-
 
 
 \end{document}
