@@ -65,196 +65,196 @@ This talk is not about high-level machine learning tools that {\it use} the GPU,
 \end{enumerate}
 \end{frame}
 
-%% \begin{frame}[fragile]{Getting started}
-%% \vspace{0.5 cm}
-%% \large
+\begin{frame}[fragile]{Getting started}
+\vspace{0.5 cm}
+\large
 
-%% {\bf Step 1:} get a GPU (legally).
+{\bf Step 1:} get a GPU (legally).
 
-%% \vspace{0.25 cm}
-%% {\bf Step 2:} install CUDA: \textcolor{blue}{\normalsize \underline{\url{https://developer.nvidia.com/cuda-downloads}}}
+\vspace{0.25 cm}
+{\bf Step 2:} install CUDA: \textcolor{blue}{\normalsize \underline{\url{https://developer.nvidia.com/cuda-downloads}}}
 
-%% \vspace{0.5 cm}
-%% On Ubuntu, it looked like
-%% \small
-%% \begin{minted}{bash}
-%% wget "https://developer.nvidia.com/compute/cuda/8.0/Prod2/local_"\
-%% "installers/cuda-repo-ubuntu1604-8-0-local-ga2_8.0.61-1_amd64-deb"
-%% sudo dpkg -i cuda-repo-ubuntu1604-8-0-local-ga2_8.0.61-1_amd64-deb  
-%% sudo apt-get update
-%% sudo apt-get install cuda
-%% \end{minted}
+\vspace{0.5 cm}
+On Ubuntu, it looked like
+\small
+\begin{minted}{bash}
+wget "https://developer.nvidia.com/compute/cuda/8.0/Prod2/local_"\
+"installers/cuda-repo-ubuntu1604-8-0-local-ga2_8.0.61-1_amd64-deb"
+sudo dpkg -i cuda-repo-ubuntu1604-8-0-local-ga2_8.0.61-1_amd64-deb  
+sudo apt-get update
+sudo apt-get install cuda
+\end{minted}
 
-%% \large
-%% \vspace{0.5 cm}
-%% {\bf Alternatively:} log into {\tt cmslpcgpu1.fnal.gov} (or {\tt 2} or {\tt 3}).
+\large
+\vspace{0.5 cm}
+{\bf Alternatively:} log into {\tt cmslpcgpu1.fnal.gov} (or {\tt 2} or {\tt 3}).
 
-%% \small
-%% \begin{minted}{bash}
-%% export CUDA_HOME=/usr/local/cuda
-%% export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
-%% export PATH=$CUDA_HOME/bin:$PATH
-%% \end{minted}
-%% \end{frame}
+\small
+\begin{minted}{bash}
+export CUDA_HOME=/usr/local/cuda
+export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
+export PATH=$CUDA_HOME/bin:$PATH
+\end{minted}
+\end{frame}
 
-%% \begin{frame}[fragile]{Now you can write GPU programs with nvcc}
-%% \vspace{0.25 cm}
-%% \scriptsize
-%% \begin{minted}{c++}
-%% #include <cstdlib>
-%% #include <iostream>
-%% const int MILLION = 1024*1024; float cpu_datain[MILLION]; float cpu_dataout[MILLION];
+\begin{frame}[fragile]{Now you can write GPU programs with nvcc}
+\vspace{0.25 cm}
+\scriptsize
+\begin{minted}{c++}
+#include <cstdlib>
+#include <iostream>
+const int MILLION = 1024*1024; float cpu_datain[MILLION]; float cpu_dataout[MILLION];
 
-%% __global__ void gpu_kernel(float* datain, float* dataout) {
-%%   int id = threadIdx.x + blockIdx.x*blockDim.x;
-%%   dataout[id] = sqrt(datain[id]);
-%% }
+__global__ void gpu_kernel(float* datain, float* dataout) {
+  int id = threadIdx.x + blockIdx.x*blockDim.x;
+  dataout[id] = sqrt(datain[id]);
+}
 
-%% int main(int argc, char**argv) {
-%%   srand(12345);
-%%   for (int i = 0;  i < MILLION;  i++) cpu_datain[i] = ((float)rand()) / RAND_MAX;
+int main(int argc, char**argv) {
+  srand(12345);
+  for (int i = 0;  i < MILLION;  i++) cpu_datain[i] = ((float)rand()) / RAND_MAX;
 
-%%   float* gpu_datain; float* gpu_dataout;
-%%   cudaMalloc((void**)&gpu_datain, MILLION*sizeof(float));
-%%   cudaMalloc((void**)&gpu_dataout, MILLION*sizeof(float));
-%%   cudaMemcpy(gpu_datain, cpu_datain, MILLION*sizeof(float), cudaMemcpyHostToDevice);
-%%   gpu_kernel<<<MILLION / 1024, 1024>>>(gpu_datain, gpu_dataout);
-%%   cudaMemcpy(cpu_dataout, gpu_dataout, MILLION*sizeof(float), cudaMemcpyDeviceToHost);
+  float* gpu_datain; float* gpu_dataout;
+  cudaMalloc((void**)&gpu_datain, MILLION*sizeof(float));
+  cudaMalloc((void**)&gpu_dataout, MILLION*sizeof(float));
+  cudaMemcpy(gpu_datain, cpu_datain, MILLION*sizeof(float), cudaMemcpyHostToDevice);
+  gpu_kernel<<<MILLION / 1024, 1024>>>(gpu_datain, gpu_dataout);
+  cudaMemcpy(cpu_dataout, gpu_dataout, MILLION*sizeof(float), cudaMemcpyDeviceToHost);
 
-%%   std::cout << "first: " << cpu_datain[0] << " --> " << cpu_dataout[0] << std::endl;
-%%   return 0;
-%% }
-%% \end{minted}
-%% \end{frame}
+  std::cout << "first: " << cpu_datain[0] << " --> " << cpu_dataout[0] << std::endl;
+  return 0;
+}
+\end{minted}
+\end{frame}
 
-%% \begin{frame}[fragile]{What did we just do?}
-%% \vspace{0.5 cm}
-%% \begin{enumerate}
-%% \item The GPU has an entirely different machine code than the CPU, and nvcc compiles some parts of the program for CPU, some for GPU.
-%% \item Functions defined with {\small\tt \_\_global\_\_} are compiled to run on GPU, called by CPU.
-%% \item Thousands of {\small\tt gpu\_kernel} functions run at once. Each determines its part of the problem from its {\small\tt id = threadIdx.x + blockIdx.x*blockDim.x}.
-%% \item Some pointers point at memory on GPU (segfault to access them from CPU).
-%% \item Data must be explicitly copied from CPU arrays to GPU arrays (and back).
-%% \item Calling a GPU function, you have to specify ``number of blocks'' and \mbox{``block size'':\hspace{-0.5 cm}}
-%% \small
-%% \vspace{0.25 cm}
-%% \begin{minted}{c++}
-%% gpu_kernel<<<numblocks, blocksize>>>(gpu_datain, gpu_dataout);
-%% \end{minted}
+\begin{frame}[fragile]{What did we just do?}
+\vspace{0.5 cm}
+\begin{enumerate}
+\item The GPU has an entirely different machine code than the CPU, and nvcc compiles some parts of the program for CPU, some for GPU.
+\item Functions defined with {\small\tt \_\_global\_\_} are compiled to run on GPU, called by CPU.
+\item Thousands of {\small\tt gpu\_kernel} functions run at once. Each determines its part of the problem from its {\small\tt id = threadIdx.x + blockIdx.x*blockDim.x}.
+\item Some pointers point at memory on GPU (segfault to access them from CPU).
+\item Data must be explicitly copied from CPU arrays to GPU arrays (and back).
+\item Calling a GPU function, you have to specify ``number of blocks'' and \mbox{``block size'':\hspace{-0.5 cm}}
+\small
+\vspace{0.25 cm}
+\begin{minted}{c++}
+gpu_kernel<<<numblocks, blocksize>>>(gpu_datain, gpu_dataout);
+\end{minted}
 
-%% \vspace{0.25 cm}
-%% \normalsize
-%% The {\small\tt blocksize} is number to run at once (usually max is 1024) and {\small\tt numblocks} is the number of such blocks.
-%% \end{enumerate}
-%% \end{frame}
+\vspace{0.25 cm}
+\normalsize
+The {\small\tt blocksize} is number to run at once (usually max is 1024) and {\small\tt numblocks} is the number of such blocks.
+\end{enumerate}
+\end{frame}
 
-%% \begin{frame}{What are blocks?}
-%% \vspace{0.5 cm}
+\begin{frame}{What are blocks?}
+\vspace{0.5 cm}
 
-%% \Large
-%% Tuning parameter for the {\it algorithm,} independent of the number of tasks the particular GPU hardware can run at once.
+\Large
+Tuning parameter for the {\it algorithm,} independent of the number of tasks the particular GPU hardware can run at once.
 
-%% \begin{center}
-%% \includegraphics[width=0.75\linewidth]{blocks.pdf}
-%% \end{center}
-%% \end{frame}
+\begin{center}
+\includegraphics[width=0.75\linewidth]{blocks.pdf}
+\end{center}
+\end{frame}
 
-%% \begin{frame}{What what's a kernel? What are (CUDA) threads?}
-%% \vspace{0.5 cm}
+\begin{frame}{What what's a kernel? What are (CUDA) threads?}
+\vspace{0.5 cm}
 
-%% \begin{center}
-%% \includegraphics[width=0.85\linewidth]{threads.png}
-%% \end{center}
-%% \end{frame}
+\begin{center}
+\includegraphics[width=0.85\linewidth]{threads.png}
+\end{center}
+\end{frame}
 
-%% \begin{frame}[fragile]{Higher-level GPU programming: PyCUDA and Numba}
-%% \vspace{0.25 cm}
-%% \Large Install via Miniconda (Python 3). \textcolor{blue}{\normalsize\underline{\url{https://conda.io/miniconda.html}}}
+\begin{frame}[fragile]{Higher-level GPU programming: PyCUDA and Numba}
+\vspace{0.25 cm}
+\Large Install via Miniconda (Python 3). \textcolor{blue}{\normalsize\underline{\url{https://conda.io/miniconda.html}}}
 
-%% \small
-%% \begin{minted}{bash}
-%% wget "https://repo.continuum.io/miniconda/"\
-%% "Miniconda3-latest-Linux-x86_64.sh"
-%% sh Miniconda3-latest-Linux-x86_64.sh      # ...and follow instructions
+\small
+\begin{minted}{bash}
+wget "https://repo.continuum.io/miniconda/"\
+"Miniconda3-latest-Linux-x86_64.sh"
+sh Miniconda3-latest-Linux-x86_64.sh      # ...and follow instructions
 
-%% export PATH=/path/to/miniconda3/bin:$PATH
-%% export LD_LIBRARY_PATH=/path/to/miniconda3/lib:$LD_LIBRARY_PATH
-%% conda update conda
+export PATH=/path/to/miniconda3/bin:$PATH
+export LD_LIBRARY_PATH=/path/to/miniconda3/lib:$LD_LIBRARY_PATH
+conda update conda
 
-%% # PyCUDA
-%% conda install -c lukepfister pycuda
+# PyCUDA
+conda install -c lukepfister pycuda
 
-%% # Numba with CUDA extensions
-%% conda install cudatoolkit
-%% conda install numba
-%% \end{minted}
-%% \end{frame}
+# Numba with CUDA extensions
+conda install cudatoolkit
+conda install numba
+\end{minted}
+\end{frame}
 
-%% \begin{frame}[fragile]{PyCUDA version of the program we compiled with nvcc}
-%% \vspace{0.1 cm}
-%% \scriptsize
-%% \begin{minted}{python}
-%% import numpy
-%% import pycuda.autoinit
-%% import pycuda.compiler
-%% import pycuda.driver
+\begin{frame}[fragile]{PyCUDA version of the program we compiled with nvcc}
+\vspace{0.1 cm}
+\scriptsize
+\begin{minted}{python}
+import numpy
+import pycuda.autoinit
+import pycuda.compiler
+import pycuda.driver
 
-%% module = pycuda.compiler.SourceModule("""
-%% __global__ void gpu_kernel(float* datain, float* dataout) {
-%%   int id = threadIdx.x + blockIdx.x*blockDim.x;
-%%   dataout[id] = sqrt(datain[id]);
-%% }
-%% """)
-%% gpu_kernel = module.get_function("gpu_kernel")
+module = pycuda.compiler.SourceModule("""
+__global__ void gpu_kernel(float* datain, float* dataout) {
+  int id = threadIdx.x + blockIdx.x*blockDim.x;
+  dataout[id] = sqrt(datain[id]);
+}
+""")
+gpu_kernel = module.get_function("gpu_kernel")
 
-%% MILLION = 1024*1024
-%% cpu_datain = numpy.random.uniform(0.0, 1.0, MILLION).astype(numpy.float32)
-%% cpu_dataout = numpy.empty(MILLION, numpy.float32)
+MILLION = 1024*1024
+cpu_datain = numpy.random.uniform(0.0, 1.0, MILLION).astype(numpy.float32)
+cpu_dataout = numpy.empty(MILLION, numpy.float32)
 
-%% gpu_kernel(pycuda.driver.In(cpu_datain),
-%%            pycuda.driver.Out(cpu_dataout),
-%%            block=(1024, 1, 1),
-%%            grid=(MILLION // 1024, 1))
+gpu_kernel(pycuda.driver.In(cpu_datain),
+           pycuda.driver.Out(cpu_dataout),
+           block=(1024, 1, 1),
+           grid=(MILLION // 1024, 1))
 
-%% print("first:", cpu_datain[0], "-->", cpu_dataout[0])
-%% \end{minted}
-%% \end{frame}
+print("first:", cpu_datain[0], "-->", cpu_dataout[0])
+\end{minted}
+\end{frame}
 
-%% \begin{frame}[fragile]{Or PyCUDA with GPUArrays}
-%% \vspace{0.2 cm}
-%% \scriptsize
-%% \begin{minted}{python}
-%% import numpy
-%% import pycuda.autoinit
-%% import pycuda.elementwise
-%% import pycuda.gpuarray
+\begin{frame}[fragile]{Or PyCUDA with GPUArrays}
+\vspace{0.2 cm}
+\scriptsize
+\begin{minted}{python}
+import numpy
+import pycuda.autoinit
+import pycuda.elementwise
+import pycuda.gpuarray
 
-%% gpu_kernel = pycuda.elementwise.ElementwiseKernel(
-%%     "float* datain, float* dataout",
-%%     "dataout[i] = sqrt(datain[i])",
-%%     "gpu_kernel")
+gpu_kernel = pycuda.elementwise.ElementwiseKernel(
+    "float* datain, float* dataout",
+    "dataout[i] = sqrt(datain[i])",
+    "gpu_kernel")
 
-%% MILLION = 1024*1024
-%% cpu_datain = numpy.random.uniform(0.0, 1.0, MILLION).astype(numpy.float32)
+MILLION = 1024*1024
+cpu_datain = numpy.random.uniform(0.0, 1.0, MILLION).astype(numpy.float32)
 
-%% gpu_datain = pycuda.gpuarray.to_gpu(cpu_datain)
-%% gpu_dataout = pycuda.gpuarray.empty(MILLION, numpy.float32)
-%% gpu_kernel(gpu_datain, gpu_dataout)
+gpu_datain = pycuda.gpuarray.to_gpu(cpu_datain)
+gpu_dataout = pycuda.gpuarray.empty(MILLION, numpy.float32)
+gpu_kernel(gpu_datain, gpu_dataout)
 
-%% print("first:", cpu_datain[0], "-->", gpu_dataout[0])
-%% \end{minted}
+print("first:", cpu_datain[0], "-->", gpu_dataout[0])
+\end{minted}
 
-%% \vspace{0.15 cm}
-%% \normalsize
-%% or even
+\vspace{0.15 cm}
+\normalsize
+or even
 
-%% \vspace{0.15 cm}
-%% \scriptsize
-%% \begin{minted}{python}
-%% import pycuda.cumath
-%% gpu_dataout = pycuda.cumath.sqrt(gpu_datain)
-%% \end{minted}
-%% \end{frame}
+\vspace{0.15 cm}
+\scriptsize
+\begin{minted}{python}
+import pycuda.cumath
+gpu_dataout = pycuda.cumath.sqrt(gpu_datain)
+\end{minted}
+\end{frame}
 
 \begin{frame}[fragile]{Numba version of the program we compiled with nvcc}
 \vspace{0.1 cm}
@@ -280,5 +280,100 @@ print("first:", cpu_datain[0], "-->", gpu_dataout[0])
 \end{minted}
 \end{frame}
 
+\begin{frame}{nvcc vs.\ PyCUDA vs.\ Numba}
+\vspace{0.5 cm}
+
+\renewcommand{\arraystretch}{2}
+\begin{tabular}{p{0.1\linewidth} p{0.45\linewidth} p{0.35\linewidth}}
+& Pros & Cons \\\hline
+nvcc & C++ integration, fully supported by NVidia, well-known interface (Google for help). & Much too complicated for most analysis tasks, even if you get a big speed-up. \\
+PyCUDA & Complete Python wrapper around nvcc, giving full control with minimum fuss, especially with GPUArrays. & The kernels still need to be written in C++/CUDA. Runs an external-process nvcc: can be slow. \\
+Numba & Write kernels in Python! The JIT-compiler is based on LLVM instead of nvcc: faster compilations? & Not as complete as PyCUDA. \\
+\end{tabular}
+\end{frame}
+
+\begin{frame}[fragile]{Getting data: uproot!}
+\begin{center}
+\textcolor{blue}{\underline{\url{https://github.com/scikit-hep/uproot}}}
+\end{center}
+
+\scriptsize
+\begin{minted}{bash}
+$ conda install pip
+$ pip install uproot
+\end{minted}
+
+\begin{uncoverenv}<2->
+\begin{minted}{bash}
+$ wget http://scikit-hep.org/uproot/examples/HZZ.root
+$ python
+\end{minted}
+
+\begin{minted}{python}
+>>> import uproot
+>>> tree = uproot.open("HZZ.root")["events"]
+>>> px, py, pz = tree.arrays(["Muon_Px", "Muon_Py", "Muon_Pz"], outputtype=tuple)
+>>> px
+jaggedarray([[-52.89945602  37.73778152],
+             [-0.81645936],
+             [ 48.98783112   0.82756668],
+             ...,
+             [-29.75678635],
+             [ 1.14186978],
+             [ 23.9132061]])
+>>> px.content
+array([-52.89945602,  37.73778152,  -0.81645936, ..., -29.75678635,
+         1.14186978,  23.9132061 ], dtype=float32)
+\end{minted}
+\end{uncoverenv}
+\end{frame}
+
+\begin{frame}[fragile]{Getting data: uproot!}
+\vspace{0.1 cm}
+\scriptsize
+\begin{minted}{python}
+>>> import numpy
+>>> import pycuda.autoinit
+>>> import pycuda.gpuarray
+>>> import pycuda.cumath
+
+# pull out the flattened contents
+>>> pxcontent = pycuda.gpuarray.to_gpu(px.content)
+>>> pycontent = pycuda.gpuarray.to_gpu(py.content)
+>>> pzcontent = pycuda.gpuarray.to_gpu(pz.content)
+
+# operate on them on the GPU, completely ignoring event structure
+>>> pcontent = pycuda.cumath.sqrt(pxcontent**2 + pycontent**2 + pzcontent**2)
+
+# re-use px.starts and px.stops because p has the same nested structure
+>>> p = uproot.interp.jagged.JaggedArray(pcontent.get(), px.starts, px.stops)
+>>> p
+jaggedarray([[ 54.77939606  39.40155411],
+             [ 31.69026947],
+             [ 54.73968506  47.48873901],
+             ...,
+             [ 62.39507294],
+             [ 174.20860291],
+             [ 69.55613708]])
+\end{minted}
+\end{frame}
+
+\begin{frame}{Good GPU algorithms, bad GPU algorithms}
+\vspace{0.5 cm}
+\large
+\begin{itemize}\setlength{\itemsep}{0.35 cm}
+\item Avoid ``if-then'' or anything that would get threads out of lock-step.
+\begin{itemize}
+\item They're not actually 1024 independent processors--- groups of 32 (``warps'') share bytecode. When one goes into an ``if'' branch, the ones that don't have to wait!
+\item Therefore, avoid structure manipulations (do those on CPU).
+\end{itemize}
+
+\item Embarrassingly parallel applications are best. ``Reducing'' (sums, making histograms) can be done efficiently on GPUs, but those kernels are hard to write. Use {\normalsize\tt GPUArray.sum} and {\normalsize\tt @numba.cuda.reduce}!
+
+\item Get data onto the GPU and keep it there while applying many operations.
+
+\item The operations may be in separate kernels: low cost to ``start'' and ``stop'' threads.
+\end{itemize}
+\end{frame}
 
 \end{document}
