@@ -52,9 +52,100 @@
 
 % START START START START START START START START START START START START START
 
-\begin{frame}{First slide}
+\begin{frame}{Goal: running your own algorithms on the GPU}
 \vspace{0.5 cm}
-HERE
+\large
+This talk is not about high-level machine learning tools that {\it use} the GPU, but directly programming it for physics.
+
+\begin{enumerate}
+\item How to install the software.
+\item Three ways to write code: (1) nvcc, (2) PyCUDA, (3) Numba.
+\item What to consider: good GPU algorithms and bad GPU algorithms.
+\item How to get the data (uproot, of course).
+\end{enumerate}
+\end{frame}
+
+%% \begin{frame}[fragile]{Getting started}
+%% \vspace{0.5 cm}
+%% \large
+
+%% {\bf Step 1:} get a GPU (legally).
+
+%% \vspace{0.25 cm}
+%% {\bf Step 2:} install CUDA: \textcolor{blue}{\normalsize \underline{\url{https://developer.nvidia.com/cuda-downloads}}}
+
+%% \vspace{0.5 cm}
+%% On Ubuntu, it looked like
+%% \small
+%% \begin{minted}{bash}
+%% wget "https://developer.nvidia.com/compute/cuda/8.0/Prod2/local_"\
+%% "installers/cuda-repo-ubuntu1604-8-0-local-ga2_8.0.61-1_amd64-deb"
+%% sudo dpkg -i cuda-repo-ubuntu1604-8-0-local-ga2_8.0.61-1_amd64-deb  
+%% sudo apt-get update
+%% sudo apt-get install cuda
+%% \end{minted}
+
+%% \large
+%% \vspace{0.5 cm}
+%% {\bf Alternatively:} log into {\tt cmslpcgpu1.fnal.gov} (or {\tt 2} or {\tt 3}).
+
+%% \small
+%% \begin{minted}{bash}
+%% export CUDA_HOME=/usr/local/cuda
+%% export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
+%% export PATH=$CUDA_HOME/bin:$PATH
+%% \end{minted}
+%% \end{frame}
+
+%% \begin{frame}[fragile]{Now you can write GPU programs with nvcc}
+%% \vspace{0.25 cm}
+%% \scriptsize
+%% \begin{minted}{c++}
+%% #include <cstdlib>
+%% #include <iostream>
+%% const int MILLION = 1024*1024; float cpu_datain[MILLION]; float cpu_dataout[MILLION];
+
+%% __global__ void gpu_kernel(float* datain, float* dataout) {
+%%   int id = threadIdx.x + blockIdx.x*blockDim.x;
+%%   dataout[id] = sqrt(datain[id]);
+%% }
+
+%% int main(int argc, char**argv) {
+%%   srand(12345);
+%%   for (int i = 0;  i < MILLION;  i++) cpu_datain[i] = ((float)rand()) / RAND_MAX;
+
+%%   float* gpu_datain; float* gpu_dataout;
+%%   cudaMalloc((void**)&gpu_datain, MILLION*sizeof(float));
+%%   cudaMalloc((void**)&gpu_dataout, MILLION*sizeof(float));
+%%   cudaMemcpy(gpu_datain, cpu_datain, MILLION*sizeof(float), cudaMemcpyHostToDevice);
+%%   gpu_kernel<<<MILLION / 1024, 1024>>>(gpu_datain, gpu_dataout);
+%%   cudaMemcpy(cpu_dataout, gpu_dataout, MILLION*sizeof(float), cudaMemcpyDeviceToHost);
+
+%%   std::cout << "first: " << cpu_datain[0] << " --> " << cpu_dataout[0] << std::endl;
+%%   return 0;
+%% }
+%% \end{minted}
+%% \end{frame}
+
+\begin{frame}[fragile]{What did we just do?}
+\vspace{0.5 cm}
+\begin{enumerate}
+\item The GPU has an entirely different machine code than the CPU, and nvcc compiles some parts of the program for CPU, some for GPU.
+\item Functions defined with {\small\tt \_\_global\_\_} are compiled to run on GPU, called by CPU.
+\item Thousands of {\small\tt gpu\_kernel} functions run at once. Each determines its part of the problem from its {\small\tt id = threadIdx.x + blockIdx.x*blockDim.x}.
+\item Some pointers point at memory on GPU (segfault to access them from CPU).
+\item Data must be explicitly copied from CPU arrays to GPU arrays (and back).
+\item Calling a GPU function, you have to specify ``number of blocks'' and \mbox{``block size'':\hspace{-0.5 cm}}
+\small
+\vspace{0.25 cm}
+\begin{minted}{c++}
+gpu_kernel<<<numblocks, blocksize>>>(gpu_datain, gpu_dataout);
+\end{minted}
+
+\vspace{0.25 cm}
+\normalsize
+The {\small\tt blocksize} is number to run at once (usually max is 1024) and {\small\tt numblocks} is the number of such blocks.
+\end{enumerate}
 \end{frame}
 
 \end{document}
